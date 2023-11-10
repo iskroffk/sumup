@@ -1,5 +1,6 @@
 package com.coding.challenge.sumup.service;
 
+import com.coding.challenge.sumup.dto.Command;
 import com.coding.challenge.sumup.dto.Job;
 import com.coding.challenge.sumup.dto.Task;
 import com.coding.challenge.sumup.graph.CommandExecutorNode;
@@ -10,10 +11,11 @@ import java.util.*;
 
 public final class JobProcessingService {
 
-    public static String executeJob(Job job) {
+    public static List<Command> executeJob(Job job) {
         try {
             List<String> output = new ArrayList<>();
-            Map<String, CommandExecutorNode> tasksNameMapping = createTaskNodes(job, output);
+            List<Command> dtos = new ArrayList<>();
+            Map<String, CommandExecutorNode> tasksNameMapping = createTaskNodes(job, output, dtos);
             setUpTaskDependencies(job, tasksNameMapping);
             List<Graph> graphs = createGraphsForRootTasks(tasksNameMapping);
 
@@ -23,16 +25,33 @@ public final class JobProcessingService {
                 graph.traverseDFS();
             }
 
-            return String.join("\n", output);
+            Map<String, Integer> outputIndexMap = new HashMap<>();
+            for (int i = 0; i < output.size(); i++) {
+                outputIndexMap.put(output.get(i), i);
+            }
+
+            dtos.sort(Comparator.comparingInt(command -> outputIndexMap.get(command.getCommand())));
+
+            return dtos;
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage(), e);
         }
     }
 
-    private static Map<String, CommandExecutorNode> createTaskNodes(Job job, List<String> output) {
+
+    private static Map<String, CommandExecutorNode> createTaskNodes(Job job, List<String> output, List<Command> commandDtoList) {
         Map<String, CommandExecutorNode> tasksNameMapping = new HashMap<>();
         for (Task task : job.getTasks()) {
-            tasksNameMapping.put(task.getName(), new CommandExecutorNode(task.getName(), task.getCommand(), output));
+            String taskName = task.getName();
+            String command = task.getCommand();
+
+            CommandExecutorNode node = new CommandExecutorNode(taskName, command, output);
+            tasksNameMapping.put(taskName, node);
+
+            Command commandDto = new Command();
+            commandDto.setName(taskName);
+            commandDto.setCommand(command);
+            commandDtoList.add(commandDto);
         }
         return tasksNameMapping;
     }
